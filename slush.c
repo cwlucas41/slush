@@ -2,9 +2,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 
 #define max_buf_size 256
 #define max_args 15
+
+void sigHandler(int signum) {
+	return;
+}
 
 int interpret(char* buf, int isFirst) {
 	char* str = strtok(buf, "(");
@@ -33,9 +38,9 @@ int interpret(char* buf, int isFirst) {
 		// replace STDOUT with new pipe if not top of recursion
 		if (!isFirst) {
 			dup2(fd[1], STDOUT_FILENO);
+			close(fd[0]);
 		}
 
-		//close(fd[0]);
 		
 		int max_argv_size = max_args + 2; //one for argv[0], one for null terminator
 		char* cmd;
@@ -61,31 +66,39 @@ int interpret(char* buf, int isFirst) {
 		//printf("]\n");
 
 		int execRet = execvp(cmd, my_argv);
-		if (execRet == -1) perror("Error execing");
-		exit(1);
+		if (execRet == -1) {
+			char error[20];
+			sprintf(error, "%s", cmd);
+			perror(error);
+		}
 	}
 
 	if (!isFirst) {
 		close(fd[1]);
 	}
+
 	if (readEnd != -1) {
-		//close(readEnd);
+		close(readEnd);
 	}
+
 	return fd[0];
 }
 		
 
 int main(int argc, char** argv) {
+	signal(2, sigHandler);
 	for(;;) {
 		char* buf = (char*) malloc(sizeof(char)*max_buf_size);
 		printf("slush > ");
 		char* ret = fgets(buf, max_buf_size, stdin);
 		if (!ret) {
-			exit(0);
+			printf("\n");
+			exit(-1);
 		} 
 
 		buf = strtok (buf,"\n");
 		interpret(buf, 1);
+		free(buf);
 	}
 	return 0;
 }
