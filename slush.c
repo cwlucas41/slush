@@ -62,9 +62,12 @@ int interpret(char* buf, int isFirst) {
 
 		int execRet = execvp(cmd, my_argv);
 		if (execRet == -1) perror("Error execing");
+		exit(1);
 	}
 
-	close(fd[1]);
+	if (!isFirst) {
+		close(fd[1]);
+	}
 	if (readEnd != -1) {
 		//close(readEnd);
 	}
@@ -78,7 +81,6 @@ int main(int argc, char** argv) {
 		printf("slush > ");
 		char* ret = fgets(buf, max_buf_size, stdin);
 		if (!ret) {
-			printf("\n");
 			exit(0);
 		} 
 
