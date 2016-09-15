@@ -7,8 +7,11 @@
 #define max_buf_size 256
 #define max_args 15
 
+int skip = 0;
+
 void sigHandler(int signum) {
-	return;
+	skip = 1;
+	printf("\n");
 }
 
 int interpret(char* buf, int isFirst) {
@@ -86,18 +89,34 @@ int interpret(char* buf, int isFirst) {
 		
 
 int main(int argc, char** argv) {
-	signal(2, sigHandler);
+	//signal(2, sigHandler);
+
+	// {
+	struct sigaction sa;
+	sa.sa_handler = sigHandler;
+	sa.sa_flags = 0;
+	sigemptyset(&sa.sa_mask);
+	sigaction(SIGINT, &sa, NULL);
+	// } source: http://docs.aws.amazon.com/iot/latest/developerguide/iot-gs.html
+
 	for(;;) {
+		skip = 0;
+
 		char* buf = (char*) malloc(sizeof(char)*max_buf_size);
+
 		printf("slush > ");
 		char* ret = fgets(buf, max_buf_size, stdin);
-		if (!ret) {
-			printf("\n");
-			exit(-1);
-		} 
 
-		buf = strtok (buf,"\n");
-		interpret(buf, 1);
+		if (!skip) {
+			if (!ret) {
+				printf("\n");
+				exit(-1);
+			} 
+
+			buf = strtok (buf,"\n");
+			interpret(buf, 1);
+		}
+
 		free(buf);
 	}
 	return 0;
