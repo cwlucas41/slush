@@ -100,44 +100,83 @@ int interpret(char* buf, int isFirst) {
 
 	return fd[0];
 }
-		
+
+void printPrompt()
+{
+        //char* cwd = getenv("PWD");
+        char* cwd = get_current_dir_name();
+        char* home = getenv("HOME");
+        int cwdLen = (int)strlen(cwd);
+        int truncLen = cwdLen - (int)strlen(home) - 1;
+        if (truncLen < 0)
+        {
+                printf("slush| > ");
+        }
+        else
+        {
+                char truncatedPath[truncLen];
+                int i = 1;
+                for (i; i < truncLen + 1; i++)
+                {
+                        truncatedPath[truncLen - i] = cwd[cwdLen - i];
+                }
+                printf("slush|%s > ", truncatedPath);
+        }
+
+}
 
 int main(int argc, char** argv) {
-	//signal(2, sigHandler);
+        //signal(2, sigHandler);
 
-	// {
-	struct sigaction sa;
-	sa.sa_handler = sigHandler;
-	sa.sa_flags = 0;
-	sigemptyset(&sa.sa_mask);
-	sigaction(SIGINT, &sa, NULL);
-	// } source: http://beej.us/guide/bgipc/output/html/multipage/signals.html
+        // {
+        struct sigaction sa;
+        sa.sa_handler = sigHandler;
+        sa.sa_flags = 0;
+        sigemptyset(&sa.sa_mask);
+        sigaction(SIGINT, &sa, NULL);
+        // } source: http://beej.us/guide/bgipc/output/html/multipage/signals.html
 
-	for(;;) {
-		skip = 0;
+        for(;;) {
+                skip = 0;
 
-		char* buf = (char*) malloc(sizeof(char)*max_buf_size);
+                char* buf = (char*) malloc(sizeof(char)*max_buf_size);
 
-		printf("slush > ");
-		char* ret = fgets(buf, max_buf_size, stdin);
+                printPrompt();
 
-		if (skip) {
-			free(buf);
-			continue;
-		}
+                char* ret = fgets(buf, max_buf_size, stdin);
+            
+                if (skip) {
+                    free(buf);
+                    continue;
+                }
 
-		if (!ret) {
-			printf("\n");
-			exit(-1);
-		} 
+                if (!ret) {
+                        printf("\n");
+                        exit(-1);
+                } 
 
-		buf = strtok (buf,"\n");
+                buf = strtok (buf,"\n");
+                int interpretBuf = 1;
+                if (buf)
+                {
+                        if ((int)strlen(buf) > 1)
+                        {
+                                if ((buf[0] == 'c') && (buf[1] == 'd'))
+                                {
+                                        char* path = strtok(buf, " ");
+                                        path = strtok(NULL, " ");
+                                        if (!path)
+                                                path = getenv("HOME");
+                                        chdir(path);
+                                        interpretBuf = 0;
+                                }
+                        }
+                }
+                if (interpretBuf)
+                        interpret(buf, 1);
 
 
-
-		interpret(buf, 1);
-
-		free(buf);
-	}
-	return 0;
+                free(buf);
+        }
+        return 0;
 }
