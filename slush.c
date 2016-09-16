@@ -7,11 +7,11 @@
 #define max_buf_size 256
 #define max_args 15
 
-int skip = 0;
+volatile sig_atomic_t skip = 0;
 
 void sigHandler(int signum) {
 	skip = 1;
-	printf("\n");
+	write(STDOUT_FILENO, "\n", 1);
 }
 
 int interpret(char* buf, int isFirst) {
@@ -20,6 +20,7 @@ int interpret(char* buf, int isFirst) {
 	if (str) {
 		readEnd = interpret(NULL, 0);
 	} else {
+		// bottom of recursion condiiton
 		return -1;
 	}
 
@@ -68,11 +69,11 @@ int interpret(char* buf, int isFirst) {
 		//}
 		//printf("]\n");
 
-		int execRet = execvp(cmd, my_argv);
-		if (execRet == -1) {
+		if (execvp(cmd, my_argv) == -1) {
 			char error[20];
 			sprintf(error, "%s", cmd);
 			perror(error);
+			exit(-1);
 		}
 	}
 
@@ -97,7 +98,7 @@ int main(int argc, char** argv) {
 	sa.sa_flags = 0;
 	sigemptyset(&sa.sa_mask);
 	sigaction(SIGINT, &sa, NULL);
-	// } source: http://docs.aws.amazon.com/iot/latest/developerguide/iot-gs.html
+	// } source: http://beej.us/guide/bgipc/output/html/multipage/signals.html
 
 	for(;;) {
 		skip = 0;
@@ -107,6 +108,10 @@ int main(int argc, char** argv) {
 		printf("slush > ");
 		char* ret = fgets(buf, max_buf_size, stdin);
 
+		if (skip) {
+			continue;
+		}
+
 		if (!skip) {
 			if (!ret) {
 				printf("\n");
@@ -115,6 +120,8 @@ int main(int argc, char** argv) {
 
 			buf = strtok (buf,"\n");
 			interpret(buf, 1);
+		} else {
+			printf("skipped ");
 		}
 
 		free(buf);
