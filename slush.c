@@ -30,7 +30,10 @@ int interpret(char* buf, int isFirst) {
 	}
 
 	int pid = fork();
-	if (pid) {
+	if (pid == -1) {
+		perror("fork problem");
+		exit(-1);
+	} else if (pid != 0) {
 		waitpid(pid, NULL, 0);
 	} else {
 
@@ -52,7 +55,12 @@ int interpret(char* buf, int isFirst) {
 		
 		cmd = strtok(str, " ");
 		char* curr = cmd;
-		my_argv[0] = cmd;
+
+		if (curr) {
+			my_argv[0] = cmd;
+		} else {
+			my_argv[0] = '\0';
+		}
 
 		int i=1;
 		while(curr) {
@@ -61,6 +69,11 @@ int interpret(char* buf, int isFirst) {
 			i++;
 		}
 		my_argv[i] = '\0';
+
+		if (!cmd) {
+			printf("Valid null command");
+			exit(-1);
+		}
 
 		//int j=0;
 		//printf("[ ");
@@ -109,20 +122,20 @@ int main(int argc, char** argv) {
 		char* ret = fgets(buf, max_buf_size, stdin);
 
 		if (skip) {
+			free(buf);
 			continue;
 		}
 
-		if (!skip) {
-			if (!ret) {
-				printf("\n");
-				exit(-1);
-			} 
+		if (!ret) {
+			printf("\n");
+			exit(-1);
+		} 
 
-			buf = strtok (buf,"\n");
-			interpret(buf, 1);
-		} else {
-			printf("skipped ");
-		}
+		buf = strtok (buf,"\n");
+
+
+
+		interpret(buf, 1);
 
 		free(buf);
 	}
