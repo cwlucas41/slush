@@ -71,7 +71,7 @@ int interpret(char* buf, int isFirst) {
 		my_argv[i] = '\0';
 
 		if (!cmd) {
-			printf("Valid null command");
+			printf("Invalid null command");
 			exit(-1);
 		}
 
@@ -161,7 +161,10 @@ int main(int argc, char** argv) {
                 {
                         if ((int)strlen(buf) > 1)
                         {
-                                if ((buf[0] == 'c') && (buf[1] == 'd'))
+				if (buf[strlen(buf) - 1] == '(') {
+					printf("Invalid null command\n");
+					interpretBuf = 0;
+				} else if ((buf[0] == 'c') && (buf[1] == 'd'))
                                 {
                                         char* path = strtok(buf, " ");
                                         path = strtok(NULL, " ");
@@ -171,7 +174,8 @@ int main(int argc, char** argv) {
                                         interpretBuf = 0;
                                 }
                         }
-                }
+		}
+              
                 if (interpretBuf)
                         interpret(buf, 1);
 
