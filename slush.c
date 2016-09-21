@@ -4,14 +4,16 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#define max_buf_size 256
+#define max_buf_size 257
 #define max_args 15
 
 volatile sig_atomic_t skip = 0;
 
 void sigHandler(int signum) {
 	skip = 1;
-	write(STDOUT_FILENO, "\n", 1);
+	if (write(STDOUT_FILENO, "\n", 1) == -1) {
+		perror("interrupt failed to write new line");
+	}
 }
 
 int interpret(char* buf, int isFirst) {
@@ -26,7 +28,10 @@ int interpret(char* buf, int isFirst) {
 
 	int fd[2];
 	if (!isFirst) {
-		pipe(fd);
+		if(pipe(fd) == -1) {
+			perror("pipe not created");
+			exit(-1);
+		}
 	}
 
 	int pid = fork();
@@ -39,13 +44,19 @@ int interpret(char* buf, int isFirst) {
 
 		// replace STDIN with passed file descriptor if not bottom of recursion
 		if (readEnd != -1) {
-			dup2(readEnd, STDIN_FILENO);
+			if (dup2(readEnd, STDIN_FILENO) == -1) {
+				perror("stdin not replaced");
+			}
 		}
 		
 		// replace STDOUT with new pipe if not top of recursion
 		if (!isFirst) {
-			dup2(fd[1], STDOUT_FILENO);
-			close(fd[0]);
+			if (dup2(fd[1], STDOUT_FILENO) == -1) {
+				perror("stdout not replaced");
+			}
+			if (close(fd[0]) == -1) {
+				perror("fd[0] not closed");
+			}
 		}
 
 		
@@ -75,13 +86,6 @@ int interpret(char* buf, int isFirst) {
 			exit(-1);
 		}
 
-		//int j=0;
-		//printf("[ ");
-		//for(j; j<i; j++) {
-		//	printf("%s ", my_argv[j]);
-		//}
-		//printf("]\n");
-
 		if (execvp(cmd, my_argv) == -1) {
 			char error[20];
 			sprintf(error, "%s", cmd);
@@ -91,11 +95,15 @@ int interpret(char* buf, int isFirst) {
 	}
 
 	if (!isFirst) {
-		close(fd[1]);
+		if (close(fd[1]) == -1) {
+			perror("parent failed to close fd[1]");
+		}
 	}
 
 	if (readEnd != -1) {
-		close(readEnd);
+		if (close(readEnd) == -1) {
+			perror("parent failed to close readEnd");
+		}
 	}
 
 	return fd[0];
@@ -105,7 +113,13 @@ void printPrompt()
 {
         //char* cwd = getenv("PWD");
         char* cwd = get_current_dir_name();
+	if (!cwd) {
+		printf("could not get current dir name\n");
+	}
         char* home = getenv("HOME");
+	if (!home) {
+		printf("could not get HOME envvar\n");
+	}
         int cwdLen = (int)strlen(cwd);
         int truncLen = cwdLen - (int)strlen(home) - 1;
         if (truncLen < 0)
@@ -126,20 +140,26 @@ void printPrompt()
 }
 
 int main(int argc, char** argv) {
-        //signal(2, sigHandler);
-
         // {
         struct sigaction sa;
         sa.sa_handler = sigHandler;
         sa.sa_flags = 0;
-        sigemptyset(&sa.sa_mask);
-        sigaction(SIGINT, &sa, NULL);
+        if (sigemptyset(&sa.sa_mask) == -1) {
+		perror("sigemptyset failed\n");
+	}
+        if (sigaction(SIGINT, &sa, NULL) == -1) {
+		perror("sigaction failed:\n");
+	}
         // } source: http://beej.us/guide/bgipc/output/html/multipage/signals.html
 
         for(;;) {
                 skip = 0;
 
                 char* buf = (char*) malloc(sizeof(char)*max_buf_size);
+		if (!buf) {
+			printf("Malloc failed\n");
+			exit(-1);
+		}
 
                 printPrompt();
 
@@ -169,15 +189,23 @@ int main(int argc, char** argv) {
                                         char* path = strtok(buf, " ");
                                         path = strtok(NULL, " ");
                                         if (!path)
-                                                path = getenv("HOME");
-                                        chdir(path);
+						path = getenv("HOME");
+                                                if(path == NULL) {
+							printf("could not get HOME");
+							exit(-1);
+						}
+                                        if(chdir(path) == -1) {
+						perror("could not chdir");
+						exit(-1);
+					}
                                         interpretBuf = 0;
                                 }
                         }
 		}
               
-                if (interpretBuf)
+                if (interpretBuf) {
                         interpret(buf, 1);
+		}
 
 
                 free(buf);
